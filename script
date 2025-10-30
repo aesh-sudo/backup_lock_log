@@ -1,0 +1,84 @@
+#!/bin/bash
+
+# LOG -----------------------------------------------------------------------------------------------------
+
+LOG_FILE=/home/aesh/examples/example_8_backup_lock_log/example_8.log
+
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+}
+
+# LOCK ----------------------------------------------------------------------------------------------------
+
+LOCK_FILE=/home/aesh/examples/example_8_backup_lock_log/example_8.lock
+LOCK_ACQUIRED=0
+
+exec 200>"$LOCK_FILE"
+
+cleanup() {
+  if [[ "$LOCK_ACQUIRED" -eq 1 ]] && [[ -f "$LOCK_FILE" ]]; then
+    exec 200>&-
+
+    rm -f "$LOCK_FILE"
+    log "The lock file has been deleted: $LOCK_FILE"
+  fi
+}
+
+trap cleanup EXIT INT TERM
+
+if flock -n 200; then
+  LOCK_ACQUIRED=1
+else
+  log "Script is already running. Exit" >&2
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------------------------------------
+
+read -p "Specify the path to the directory or file to backup: " src
+read -p "Specify the path to the backup storage directory: " dst
+
+# Проверка параметров на заполнение
+if [[ -z "$src" ]]; then
+  log "The path to the backup directory or file cannot be empty" >&2
+  exit 1
+fi
+
+if [[ -z "$dst" ]]; then
+  log "The path to the backup storage directory cannot be empty" >&2
+  exit 1
+fi
+
+# Проверка на существование архивируемого файла/директории
+if ! [[ -e "$src" ]]; then
+  log "Error: source '$src' does not exist" >&2
+  exit 1
+fi
+
+if ! [[ -d "$dst" ]]; then
+  log "Error: backup directory '$dst' does not exist" >&2
+  exit 1
+fi
+
+# Архивация
+base_name=$(basename "$src")
+date=$(date '+%Y%m%d_%H%M%S')
+dst_file=${dst%/}/${base_name}_backup_${date}.tar.gz
+
+if tar -czf "$dst_file" -C "$(dirname "$src")" "$base_name" 2>/dev/null; then
+  log "Backup created: $dst_file"
+
+  # Ротация: оставить последние 3 бэкапа
+  pattern="${base_name}_backup_*.tar.gz"
+
+  # Получаем список бэкапов и сортируем по времени (сначала новые)
+  mapfile -t files < <(ls -t "$dst"/$pattern 2>/dev/null)
+  
+  if [[ ${#files[@]} -gt 3 ]]; then
+    # Удаляем с 4-го бэкапа и до конца
+    rm -f "${files[@]:3}"
+  fi
+else
+  log "Failed to create backup" >&2
+  exit 1
+fi
