@@ -29,7 +29,7 @@ trap cleanup EXIT INT TERM
 if flock -n 200; then
   LOCK_ACQUIRED=1
 else
-  log "Script is already running. Exit" >&2
+  log "Script is already running. Exit"
   exit 1
 fi
 
@@ -40,23 +40,23 @@ read -p "Specify the path to the backup storage directory: " dst
 
 # Проверка параметров на заполнение
 if [[ -z "$src" ]]; then
-  log "The path to the backup directory or file cannot be empty" >&2
+  log "The path to the backup directory or file cannot be empty"
   exit 1
 fi
 
 if [[ -z "$dst" ]]; then
-  log "The path to the backup storage directory cannot be empty" >&2
+  log "The path to the backup storage directory cannot be empty"
   exit 1
 fi
 
 # Проверка на существование архивируемого файла/директории
 if ! [[ -e "$src" ]]; then
-  log "Error: source '$src' does not exist" >&2
+  log "Error: source '$src' does not exist"
   exit 1
 fi
 
 if ! [[ -d "$dst" ]]; then
-  log "Error: backup directory '$dst' does not exist" >&2
+  log "Error: backup directory '$dst' does not exist"
   exit 1
 fi
 
@@ -79,6 +79,6 @@ if tar -czf "$dst_file" -C "$(dirname "$src")" "$base_name" 2>/dev/null; then
     rm -f "${files[@]:3}"
   fi
 else
-  log "Failed to create backup" >&2
+  log "Failed to create backup"
   exit 1
 fi
